@@ -1,0 +1,70 @@
+@media (max-width: 1380px) {
+  .workbench-grid {
+    grid-template-columns: minmax(260px, 0.8fr) minmax(520px, 1.7fr);
+  }
+
+  .right-column {
+    grid-column: 1 / -1;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 1120px) {
+  .topbar {
+    grid-template-columns: 1fr;
+    align-items: start;
+  }
+
+  .topbar-status {
+    justify-content: flex-start;
+  }
+
+  .toolbar,
+  .kpi-grid,
+  .right-column {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .toolbar-vertical {
+    grid-template-columns: 1fr;
+  }
+
+  .workbench-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .alerts-panel {
+    position: static;
+  }
+
+  .alerts-list {
+    max-height: 360px;
+  }
+}
+
+@media (max-width: 760px) {
+  .app-shell {
+    width: min(100% - 20px, 1760px);
+    padding-top: 10px;
+  }
+
+  .toolbar,
+  .kpi-grid,
+  .secondary-charts,
+  .right-column {
+    grid-template-columns: 1fr;
+  }
+
+  .topbar {
+    padding: 18px;
+  }
+
+  .topbar h1 {
+    font-size: 1.55rem;
+  }
+
+  .main-chart-frame,
+  .small-chart-frame {
+    height: 300px;
+  }
+}

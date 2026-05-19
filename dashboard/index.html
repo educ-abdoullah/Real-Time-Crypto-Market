@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Real-Time Crypto Market Monitoring</title>
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" />
+    <link rel="stylesheet" href="./css/base.css" />
+    <link rel="stylesheet" href="./css/layout.css" />
+    <link rel="stylesheet" href="./css/components.css" />
+    <link rel="stylesheet" href="./css/responsive.css" />
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="/socket.io/socket.io.js"></script>
+    <script type="module" src="./js/main.js"></script>
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">Live Market Intelligence</p>
+          <h1>Real-Time Crypto Market Monitoring</h1>
+          <p class="subtitle">Binance & Coinbase live streaming analytics</p>
+        </div>
+        <div class="topbar-status">
+          <span id="socketStatus" class="status-pill status-disconnected">Socket disconnected</span>
+          <span id="apiStatus" class="status-pill status-loading">API loading</span>
+          <span id="lastUpdated">Last update: --</span>
+        </div>
+      </header>
+
+      <main>
+        <section id="loadingState" class="state-banner">Loading market data...</section>
+        <section id="errorState" class="state-banner state-error hidden"></section>
+
+        <section class="kpi-grid" id="kpiGrid" aria-label="Market KPI cards"></section>
+
+        <section class="workbench-grid">
+          <aside class="panel alerts-panel">
+            <div class="panel-heading">
+              <h2>Live Alerts</h2>
+              <span id="alertCount" class="panel-tag">0 alerts</span>
+            </div>
+            <label class="inline-filter">
+              Filter
+              <select id="alertFilter">
+                <option value="all">All alerts</option>
+                <option value="HIGH">HIGH</option>
+                <option value="MEDIUM">MEDIUM</option>
+                <option value="LOW">LOW</option>
+                <option value="EXCHANGE_PRICE_DIVERGENCE">Exchange divergence</option>
+              </select>
+            </label>
+            <div id="alertsList" class="alerts-list"></div>
+          </aside>
+
+          <section class="charts-column">
+            <article class="panel panel-main-chart">
+              <div class="panel-heading">
+                <div>
+                  <h2 id="mainChartTitle">Main Live Metric</h2>
+                  <p id="mainChartCaption">Selected metric across filtered series</p>
+                </div>
+                <span class="panel-tag">Live</span>
+              </div>
+              <div class="chart-frame main-chart-frame"><canvas id="mainMetricChart"></canvas></div>
+            </article>
+
+            <div class="secondary-charts">
+              <article class="panel">
+                <div class="panel-heading">
+                  <h2>Volume</h2>
+                  <span class="panel-tag">Bar</span>
+                </div>
+                <div class="chart-frame small-chart-frame"><canvas id="volumeChart"></canvas></div>
+              </article>
+
+              <article class="panel">
+                <div class="panel-heading">
+                  <h2>Spread</h2>
+                  <span class="panel-tag">$ / %</span>
+                </div>
+                <div class="chart-frame small-chart-frame"><canvas id="spreadChart"></canvas></div>
+              </article>
+
+              <article class="panel">
+                <div class="panel-heading">
+                  <h2>Market Activity</h2>
+                  <span class="panel-tag">Trades/sec</span>
+                </div>
+                <div class="chart-frame small-chart-frame"><canvas id="activityChart"></canvas></div>
+              </article>
+
+              <article class="panel">
+                <div class="panel-heading">
+                  <h2>Volatility</h2>
+                  <span class="panel-tag">Filled line</span>
+                </div>
+                <div class="chart-frame small-chart-frame"><canvas id="volatilityChart"></canvas></div>
+              </article>
+            </div>
+          </section>
+
+          <aside class="right-column">
+            <article class="panel controls-panel">
+              <div class="panel-heading">
+                <h2>Chart Controls</h2>
+                <span class="panel-tag">Focus</span>
+              </div>
+              <div class="toolbar toolbar-vertical">
+                <label>
+                  Market
+                  <select id="marketFilter">
+                    <option value="BTC-USD">BTC-USD</option>
+                    <option value="ETH-USD">ETH-USD</option>
+                  </select>
+                </label>
+                <label>
+                  Source
+                  <select id="sourceFilter">
+                    <option value="compare">Binance vs Coinbase</option>
+                    <option value="binance">Binance</option>
+                    <option value="coinbase">Coinbase</option>
+                  </select>
+                </label>
+                <label>
+                  Metric
+                  <select id="metricFilter">
+                    <option value="last_price">last_price</option>
+                    <option value="avg_price">avg_price</option>
+                    <option value="vwap">vwap</option>
+                    <option value="volume">volume</option>
+                    <option value="price_change_pct">price_change_pct</option>
+                    <option value="trades_per_second">trades_per_second</option>
+                    <option value="price_volatility">price_volatility</option>
+                    <option value="buy_volume_ratio">buy_volume_ratio</option>
+                    <option value="sell_volume_ratio">sell_volume_ratio</option>
+                    <option value="avg_latency_ms">avg_latency_ms</option>
+                  </select>
+                </label>
+                <label>
+                  Window
+                  <select id="windowFilter">
+                    <option value="60s">60s</option>
+                    <option value="180s">180s</option>
+                    <option value="240s">240s</option>
+                    <option value="300s">300s</option>
+                    <option value="900s">900s</option>
+                  </select>
+                </label>
+                <label>
+                  Scale mode
+                  <select id="chartModeFilter">
+                    <option value="absolute">Absolute</option>
+                    <option value="relative">Relative %</option>
+                    <option value="indexed">Indexed 100</option>
+                  </select>
+                </label>
+              </div>
+            </article>
+
+            <article class="panel">
+              <div class="panel-heading">
+                <h2>Exchange Comparison</h2>
+                <span class="panel-tag" id="comparisonMarketTag">BTC-USD</span>
+              </div>
+              <div id="comparisonGrid" class="comparison-grid"></div>
+            </article>
+
+            <article class="panel">
+              <div class="panel-heading">
+                <h2>Detailed Metrics</h2>
+                <span class="panel-tag">Window</span>
+              </div>
+              <div id="detailsGrid" class="details-grid"></div>
+            </article>
+
+            <article class="panel">
+              <div class="panel-heading">
+                <h2>System Status</h2>
+                <span class="panel-tag">Runtime</span>
+              </div>
+              <dl id="systemStatus" class="status-list"></dl>
+            </article>
+          </aside>
+        </section>
+      </main>
+    </div>
+  </body>
+</html>

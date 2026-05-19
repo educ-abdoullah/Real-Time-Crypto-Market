@@ -1,0 +1,88 @@
+.app-shell {
+  width: min(1760px, calc(100% - 32px));
+  margin: 0 auto;
+  padding: 18px 0 30px;
+}
+
+.topbar {
+  display: grid;
+  grid-template-columns: minmax(360px, 1fr) auto;
+  align-items: center;
+  gap: 24px;
+  padding: 20px 24px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel);
+  box-shadow: var(--shadow-soft);
+}
+
+.topbar h1 {
+  margin-top: 4px;
+  font-size: clamp(1.55rem, 2.2vw, 2.45rem);
+  line-height: 1.04;
+  letter-spacing: 0;
+}
+
+.topbar-status {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+main {
+  display: grid;
+  gap: 14px;
+  margin-top: 14px;
+}
+
+.toolbar {
+  display: grid;
+  grid-template-columns: 0.9fr 1.2fr 1.1fr 0.8fr;
+  gap: 12px;
+  padding: 14px;
+}
+
+.toolbar-vertical {
+  grid-template-columns: 1fr;
+  padding: 0;
+}
+
+.toolbar label,
+.inline-filter {
+  display: grid;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 0.74rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+}
+
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(210px, 1fr));
+  gap: 12px;
+}
+
+.workbench-grid {
+  display: grid;
+  grid-template-columns: 300px minmax(560px, 1fr) 330px;
+  gap: 14px;
+  align-items: start;
+}
+
+.charts-column,
+.right-column {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+}
+
+.secondary-charts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
