@@ -1,0 +1,6 @@
+aiokafka
+websockets
+motor
+pymongo
+orjson
+lz4
