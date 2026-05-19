@@ -1,9 +1,9 @@
 import { UI_FLUSH_MS } from "./config.js";
 import { fetchHealth, fetchInitialDashboardData } from "./api.js";
-import { initCharts, updateCharts } from "./charts.js";
+import { initCharts, resetChartZoom, updateCharts, updateChartsTheme } from "./charts.js";
 import { connectMarketSocket } from "./socket.js";
 import { addAlertsPayload, setError, setHealth, setLoading, upsertMetricsPayload } from "./state.js";
-import { initUi, renderUi } from "./ui.js";
+import { bindChartActions, initUi, renderUi } from "./ui.js";
 
 let rafId = null;
 let lastFlush = 0;
@@ -11,6 +11,13 @@ let lastFlush = 0;
 document.addEventListener("DOMContentLoaded", async () => {
   initUi({ onFiltersChanged: scheduleRender });
   initCharts();
+  bindChartActions({
+    onResetZoom: resetChartZoom,
+    onThemeChanged: () => {
+      updateChartsTheme();
+      scheduleRender(true);
+    }
+  });
   renderUi();
 
   await loadInitialData();

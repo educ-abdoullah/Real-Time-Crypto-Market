@@ -3,6 +3,7 @@ import { buildMetricKey, getAlertTimestamp, getMetricTimestamp, normalizeMarket,
 
 export const state = {
   filters: { ...DEFAULT_FILTERS },
+  theme: "light",
   metrics: new Map(),
   alerts: [],
   chartSeries: new Map(),
@@ -42,10 +43,11 @@ export function setError(error) {
 export function upsertMetric(metric, explicitKey) {
   if (!metric) return null;
 
+  const keyParts = parseMetricKey(explicitKey);
   const normalized = {
     ...metric,
-    source: normalizeSource(metric.source),
-    market: normalizeMarket(metric)
+    source: normalizeSource(metric.source || keyParts.source),
+    market: normalizeMarket(metric.market || metric.symbol || keyParts.market)
   };
   const key = buildMetricKey(normalized);
   const timestamp = getMetricTimestamp(normalized);
@@ -146,4 +148,16 @@ function dedupeAlerts(alerts) {
     seen.add(key);
     return true;
   });
+}
+
+function parseMetricKey(key) {
+  if (!key || typeof key !== "string") {
+    return { source: null, market: null };
+  }
+
+  const [source, ...marketParts] = key.split(":");
+  return {
+    source: source || null,
+    market: marketParts.join(":") || null
+  };
 }

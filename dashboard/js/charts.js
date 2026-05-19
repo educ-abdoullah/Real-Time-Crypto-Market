@@ -3,11 +3,18 @@ import { getWindowMetrics, state } from "./state.js";
 import { formatCurrency, formatDateTime, formatNumber, formatPercent } from "./formatters.js";
 
 const charts = {};
+let zoomInteractionActive = false;
 
 const baseScales = {
   x: {
-    type: "category",
-    ticks: { color: "#64748b", maxRotation: 0, autoSkip: true, maxTicksLimit: 8 },
+    type: "linear",
+    ticks: {
+      color: "#64748b",
+      maxRotation: 0,
+      autoSkip: true,
+      maxTicksLimit: 8,
+      callback: (value) => formatDateTime(value)
+    },
     grid: { color: "#eef2f7" },
     border: { color: "#d8e2ec" }
   },
@@ -34,6 +41,25 @@ export function updateCharts() {
   updateSpreadChart();
   updateActivityChart();
   updateVolatilityChart();
+}
+
+export function resetChartZoom(chartId) {
+  if (chartId === "all") {
+    Object.values(charts).forEach((chart) => chart?.resetZoom?.());
+    zoomInteractionActive = false;
+    return;
+  }
+
+  charts[chartId]?.resetZoom?.();
+  zoomInteractionActive = false;
+}
+
+export function updateChartsTheme() {
+  Object.values(charts).forEach((chart) => {
+    if (!chart) return;
+    applyThemeToChart(chart);
+    chart.update("none");
+  });
 }
 
 function createChart(canvasId, type, dualAxis = false) {
@@ -90,7 +116,40 @@ function createBaseOptions() {
         titleColor: "#ffffff",
         bodyColor: "#ffffff",
         callbacks: {
+          title: (items) => items.length ? formatDateTime(items[0].parsed.x) : "",
           label: (context) => `${context.dataset.label}: ${formatByMetric(context.parsed.y, context.dataset.metricName)}`
+        }
+      },
+      zoom: {
+        pan: {
+          enabled: true,
+          mode: "x",
+          modifierKey: "shift",
+          onPanStart: () => {
+            zoomInteractionActive = true;
+          }
+        },
+        zoom: {
+          wheel: {
+            enabled: true,
+            modifierKey: "ctrl"
+          },
+          pinch: {
+            enabled: true
+          },
+          drag: {
+            enabled: true,
+            backgroundColor: "rgba(37, 99, 235, 0.12)",
+            borderColor: "rgba(37, 99, 235, 0.45)",
+            borderWidth: 1
+          },
+          mode: "x",
+          onZoomStart: () => {
+            zoomInteractionActive = true;
+          }
+        },
+        limits: {
+          x: { min: "original", max: "original" }
         }
       }
     },
@@ -147,11 +206,18 @@ function buildMetricDataset(source, metricName, mode, options = {}) {
     type: options.bar ? "bar" : "line",
     label: `${sourceLabel(source)} ${market}`,
     metricName: displayMetricName(metricName, mode),
-    data: transformed.map((point) => ({ x: formatDateTime(point.ts), y: point.value })),
+    data: transformed.map((point) => ({ x: point.ts, y: point.value })),
     borderColor: color,
     backgroundColor: sourceColor(source, options.bar ? 0.58 : options.fill ? 0.14 : 0.08),
     fill: Boolean(options.fill),
-    borderWidth: options.bar ? 0 : 2.3,
+    borderWidth: options.bar ? 0 : source === "coinbase" ? 2.8 : 2.4,
+    borderDash: source === "coinbase" && !options.bar ? [7, 4] : [],
+    pointRadius: options.bar ? 0 : source === "coinbase" ? 2 : 1.5,
+    pointHoverRadius: 5,
+    order: source === "coinbase" ? 1 : 2,
+    spanGaps: true,
+    barThickness: options.bar ? 10 : undefined,
+    maxBarThickness: options.bar ? 14 : undefined,
     barPercentage: 0.72,
     categoryPercentage: 0.72
   };
@@ -164,24 +230,22 @@ function buildSpreadDatasets(market) {
 
   const bPoints = getSeriesPoints(`binance:${market}`, binance);
   const cPoints = getSeriesPoints(`coinbase:${market}`, coinbase);
-  const length = Math.min(bPoints.length, cPoints.length, CHART_POINT_LIMIT);
+  const pairs = alignSeriesByNearestTimestamp(bPoints, cPoints).slice(-CHART_POINT_LIMIT);
   const absData = [];
   const pctData = [];
 
-  for (let offset = length; offset > 0; offset -= 1) {
-    const b = bPoints[bPoints.length - offset];
-    const c = cPoints[cPoints.length - offset];
+  pairs.forEach(({ b, c }) => {
     const bPrice = Number(b?.values?.last_price);
     const cPrice = Number(c?.values?.last_price);
 
     if (Number.isFinite(bPrice) && Number.isFinite(cPrice)) {
-      const ts = formatDateTime(Math.max(b.ts, c.ts));
+      const ts = Math.max(b.ts, c.ts);
       const spread = Math.abs(bPrice - cPrice);
       const pct = spread / ((bPrice + cPrice) / 2) * 100;
       absData.push({ x: ts, y: spread });
       pctData.push({ x: ts, y: pct });
     }
-  }
+  });
 
   return [
     {
@@ -204,6 +268,38 @@ function buildSpreadDatasets(market) {
       yAxisID: "y1"
     }
   ];
+}
+
+function alignSeriesByNearestTimestamp(binancePoints, coinbasePoints) {
+  if (!binancePoints.length || !coinbasePoints.length) return [];
+
+  const sortedCoinbase = [...coinbasePoints].sort((a, b) => a.ts - b.ts);
+  return [...binancePoints]
+    .sort((a, b) => a.ts - b.ts)
+    .map((bPoint) => {
+      const cPoint = nearestPoint(sortedCoinbase, bPoint.ts);
+      return cPoint ? { b: bPoint, c: cPoint } : null;
+    })
+    .filter(Boolean);
+}
+
+function nearestPoint(points, timestamp) {
+  let best = null;
+  let bestDelta = Infinity;
+
+  for (const point of points) {
+    const delta = Math.abs(point.ts - timestamp);
+    if (delta < bestDelta) {
+      best = point;
+      bestDelta = delta;
+    }
+
+    if (point.ts > timestamp && delta > bestDelta) {
+      break;
+    }
+  }
+
+  return bestDelta <= 120_000 ? best : null;
 }
 
 function getSeriesPoints(key, metric) {
@@ -247,7 +343,9 @@ function activeSources() {
 function applyDatasets(chart, datasets, metricName, options = {}) {
   if (!chart) return;
 
+  const xRange = captureXScale(chart);
   chart.data.datasets = datasets;
+  applyThemeToChart(chart);
   chart.options.scales.y.ticks.callback = (value) => formatAxisValue(value, metricName);
   chart.options.scales.y.beginAtZero = Boolean(options.beginAtZero);
 
@@ -267,6 +365,47 @@ function applyDatasets(chart, datasets, metricName, options = {}) {
   }
 
   chart.update("none");
+  if (zoomInteractionActive && xRange) {
+    restoreXScale(chart, xRange);
+  }
+}
+
+function captureXScale(chart) {
+  const scale = chart.scales?.x;
+  if (!scale || !Number.isFinite(scale.min) || !Number.isFinite(scale.max)) return null;
+  return { min: scale.min, max: scale.max };
+}
+
+function restoreXScale(chart, range) {
+  chart.options.scales.x.min = range.min;
+  chart.options.scales.x.max = range.max;
+  chart.update("none");
+}
+
+function applyThemeToChart(chart) {
+  const styles = getComputedStyle(document.documentElement);
+  const text = styles.getPropertyValue("--muted").trim() || "#64748b";
+  const grid = styles.getPropertyValue("--line-soft").trim() || "#eef2f7";
+  const border = styles.getPropertyValue("--line").trim() || "#d8e2ec";
+  const isDark = document.documentElement.dataset.theme === "dark";
+  const tooltipBg = isDark ? styles.getPropertyValue("--panel-soft").trim() || "#243244" : "#172033";
+  const tooltipText = isDark ? styles.getPropertyValue("--text").trim() || "#edf2f7" : "#ffffff";
+
+  chart.options.plugins.legend.labels.color = text;
+  chart.options.plugins.tooltip.backgroundColor = tooltipBg;
+  chart.options.plugins.tooltip.titleColor = tooltipText;
+  chart.options.plugins.tooltip.bodyColor = tooltipText;
+  chart.options.scales.x.ticks.color = text;
+  chart.options.scales.x.grid.color = grid;
+  chart.options.scales.x.border.color = border;
+  chart.options.scales.y.ticks.color = text;
+  chart.options.scales.y.grid.color = grid;
+  chart.options.scales.y.border.color = border;
+
+  if (chart.options.scales.y1) {
+    chart.options.scales.y1.ticks.color = text;
+    chart.options.scales.y1.border.color = border;
+  }
 }
 
 function smartBounds(datasets, metricName) {
@@ -276,7 +415,7 @@ function smartBounds(datasets, metricName) {
   let min = Math.min(...values);
   let max = Math.max(...values);
 
-  if (metricName === "price_change_pct" || metricName === "relative" || state.filters.chartMode === "relative") {
+  if (metricName === "price_change_pct" || metricName === "relative") {
     const bound = Math.max(Math.abs(min), Math.abs(max), 0.01);
     return { min: -bound * 1.12, max: bound * 1.12 };
   }

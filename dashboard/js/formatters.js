@@ -60,13 +60,21 @@ export function normalizeTimestamp(value) {
 }
 
 export function normalizeSource(value) {
-  return String(value || "unknown").toLowerCase();
+  const source = String(value || "unknown").toLowerCase().trim();
+
+  if (source.includes("coinbase")) return "coinbase";
+  if (source.includes("binance")) return "binance";
+  if (source.includes("multi")) return "multi_exchange";
+
+  return source;
 }
 
-export function normalizeMarket(metric) {
-  const market = metric?.market || metric?.symbol || "unknown";
-  if (market === "BTCUSDT") return "BTC-USD";
-  if (market === "ETHUSDT") return "ETH-USD";
+export function normalizeMarket(metricOrValue) {
+  const raw = typeof metricOrValue === "string" ? metricOrValue : metricOrValue?.market || metricOrValue?.symbol || "unknown";
+  const market = String(raw || "unknown").toUpperCase().replace("/", "-");
+
+  if (market === "BTCUSDT" || market === "BTC-USD" || market === "BTCUSD") return "BTC-USD";
+  if (market === "ETHUSDT" || market === "ETH-USD" || market === "ETHUSD") return "ETH-USD";
   return market;
 }
 

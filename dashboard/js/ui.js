@@ -6,8 +6,22 @@ const elements = {};
 
 export function initUi({ onFiltersChanged }) {
   cacheElements();
+  initTheme();
   bindFilters(onFiltersChanged);
   renderSkeletonCards();
+}
+
+export function bindChartActions({ onResetZoom, onThemeChanged }) {
+  document.querySelectorAll("[data-reset-chart]").forEach((button) => {
+    button.addEventListener("click", () => onResetZoom?.(button.dataset.resetChart));
+  });
+
+  elements.themeToggle?.addEventListener("click", () => {
+    const nextTheme = state.theme === "dark" ? "light" : "dark";
+    applyTheme(nextTheme);
+    onThemeChanged?.();
+    renderTopbar();
+  });
 }
 
 export function renderUi() {
@@ -26,6 +40,7 @@ function cacheElements() {
     "socketStatus",
     "apiStatus",
     "lastUpdated",
+    "themeToggle",
     "marketFilter",
     "sourceFilter",
     "windowFilter",
@@ -46,6 +61,22 @@ function cacheElements() {
   ].forEach((id) => {
     elements[id] = document.getElementById(id);
   });
+}
+
+function initTheme() {
+  const stored = localStorage.getItem("crypto-dashboard-theme");
+  applyTheme(stored === "dark" ? "dark" : "light");
+}
+
+function applyTheme(theme) {
+  state.theme = theme;
+  document.documentElement.dataset.theme = theme;
+  localStorage.setItem("crypto-dashboard-theme", theme);
+
+  if (elements.themeToggle) {
+    elements.themeToggle.textContent = theme === "dark" ? "Mode clair" : "Mode sombre";
+    elements.themeToggle.setAttribute("aria-pressed", String(theme === "dark"));
+  }
 }
 
 function bindFilters(onFiltersChanged) {
